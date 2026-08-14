@@ -10,11 +10,10 @@ import nest_asyncio
 
 nest_asyncio.apply()
 
-# === THÔNG TIN ĐÃ ĐƯỢC NHÚNG SẴN ===
+# === THÔNG TIN CỐ ĐỊNH ===
 BOT_TOKEN = "8663622587:AAFIO8Mvr6hLCqyKvdsD_fQ-hNRxwlyKjNM"
 
-# Cookie Facebook (mảng JSON bạn gửi)
-FB_COOKIES = [
+FB_COOKIES = [  # (giữ nguyên cookie của bạn, không thay đổi)
     {"domain": ".facebook.com", "expirationDate": 1818244507.256036, "hostOnly": False, "httpOnly": False, "name": "c_user", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "100067984778655", "id": 1},
     {"domain": ".facebook.com", "expirationDate": 1821268373.421146, "hostOnly": False, "httpOnly": True, "name": "datr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-aq3sWV4CaGn6EBAcZW5V", "id": 2},
     {"domain": ".facebook.com", "expirationDate": 1818244511, "hostOnly": False, "httpOnly": False, "name": "fbl_st", "path": "/", "sameSite": "strict", "secure": True, "session": False, "storeId": "0", "value": "101729642%3BT%3A29778475", "id": 3},
@@ -31,71 +30,67 @@ FB_COOKIES = [
     {"domain": ".facebook.com", "expirationDate": 1818244507.258862, "hostOnly": False, "httpOnly": True, "name": "xs", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "30%3An9p7CuIv_HLSDw%3A2%3A1786708502%3A-1%3A-1", "id": 14}
 ]
 
-# Dự phòng nếu cookie die
 FB_USER = "0347999535"
 FB_PASS = "qhmaicute"
-PROXY = None   # Nếu có proxy thì đặt vào đây, ví dụ "http://user:pass@ip:port"
+PROXY = None
 
 COORDINATES = []
 is_running = False
 browser = None
 
-# === XỬ LÝ FILE JSON TỌA ĐỘ ===
+# === HÀM XỬ LÝ ===
 def parse_coord_json(content: bytes) -> list:
     data = json.loads(content)
     if not isinstance(data, list):
-        raise ValueError("Dữ liệu không phải mảng")
+        raise ValueError("Không phải mảng")
     return [{"x": item["x"], "y": item["y"]} for item in data if "x" in item and "y" in item]
 
-# === LỆNH START ===
+# === LỆNH ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 *Bot Dame Auto Facebook*\n"
-        "📤 Gửi file JSON tọa độ (có x, y).\n"
-        "▶️ /attack – Bắt đầu spam click\n"
-        "⏹ /stop   – Dừng ngay",
+        "🤖 *Bot Dame Auto FB*\n"
+        "📤 Gửi file JSON tọa độ\n"
+        "▶️ /attack – Bắt đầu\n"
+        "⏹ /stop   – Dừng",
         parse_mode="Markdown"
     )
 
-# === NHẬN FILE JSON ===
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global COORDINATES
     doc = update.message.document
     if not doc.file_name.endswith(".json"):
-        await update.message.reply_text("❌ Vui lòng gửi file .json")
+        await update.message.reply_text("❌ Gửi file .json")
         return
     file = await doc.get_file()
     raw = await file.download_as_bytearray()
     try:
         coords = parse_coord_json(bytes(raw))
         if not coords:
-            await update.message.reply_text("❌ File rỗng hoặc sai định dạng")
+            await update.message.reply_text("❌ File rỗng hoặc sai")
             return
         COORDINATES = coords
         await update.message.reply_text(f"✅ Đã nạp {len(COORDINATES)} tọa độ")
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
 
-# === LỆNH ATTACK ===
 async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_running, browser
-
     if not COORDINATES:
-        await update.message.reply_text("❌ Chưa có tọa độ. Gửi file JSON trước.")
+        await update.message.reply_text("❌ Chưa có tọa độ")
         return
-
     if is_running:
-        await update.message.reply_text("⚠️ Bot đang chạy")
+        await update.message.reply_text("⚠️ Đang chạy")
         return
 
     is_running = True
-    await update.message.reply_text(f"🔥 Bắt đầu tấn công với {len(COORDINATES)} tọa độ...")
+    await update.message.reply_text(f"🔥 Bắt đầu với {len(COORDINATES)} tọa độ...")
 
     async with async_playwright() as p:
         launch_opts = {
             "headless": True,
             "args": [
                 "--no-sandbox",
+                "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
                 "--disable-blink-features=AutomationControlled",
@@ -113,40 +108,25 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         page = await context.new_page()
         await stealth_async(page)
 
-        # === ĐĂNG NHẬP BẰNG COOKIE ===
         try:
-            if FB_COOKIES:
-                # Chuyển cookie thành định dạng Playwright
-                cookies = [{"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c.get("path", "/"), "secure": c.get("secure", True)} for c in FB_COOKIES]
-                await context.add_cookies(cookies)
-                await page.goto("https://facebook.com", timeout=60000)
-                # Kiểm tra nếu vẫn ở trang login
-                if "login" in page.url:
-                    await update.message.reply_text("⚠️ Cookie hết hạn, thử đăng nhập bằng user/pass...")
-                    # Nếu cookie die, thử login user/pass
-                    await page.fill('input[name="email"]', FB_USER)
-                    await page.fill('input[name="pass"]', FB_PASS)
-                    await page.click('button[name="login"]')
-                    await page.wait_for_timeout(5000)
-            else:
-                # Nếu không có cookie, dùng user/pass
-                await page.goto("https://facebook.com", timeout=60000)
-                if "login" in page.url:
-                    await page.fill('input[name="email"]', FB_USER)
-                    await page.fill('input[name="pass"]', FB_PASS)
-                    await page.click('button[name="login"]')
-                    await page.wait_for_timeout(5000)
-
-            # Đợi trang chủ load
+            # Đăng nhập bằng cookie
+            cookies = [{"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c.get("path", "/"), "secure": c.get("secure", True)} for c in FB_COOKIES]
+            await context.add_cookies(cookies)
+            await page.goto("https://facebook.com", timeout=60000)
+            if "login" in page.url:
+                await update.message.reply_text("⚠️ Cookie hết hạn, dùng user/pass...")
+                await page.fill('input[name="email"]', FB_USER)
+                await page.fill('input[name="pass"]', FB_PASS)
+                await page.click('button[name="login"]')
+                await page.wait_for_timeout(5000)
             await page.wait_for_selector('div[role="main"]', timeout=15000)
             await update.message.reply_text("✅ Đăng nhập thành công.")
         except Exception as e:
-            await update.message.reply_text(f"⚠️ Lỗi đăng nhập: {e}")
+            await update.message.reply_text(f"⚠️ Lỗi login: {e}")
             await browser.close()
             is_running = False
             return
 
-        # === VÒNG LẶP CLICK ===
         loop_count = 0
         while is_running:
             for coord in COORDINATES:
@@ -163,15 +143,13 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(f"⚠️ Lỗi click: {e}. Reload...")
                     await page.reload()
                     await asyncio.sleep(2)
-            # Refresh sau mỗi vòng để giải phóng RAM
             await page.reload()
             await asyncio.sleep(1)
 
         await browser.close()
         is_running = False
-        await update.message.reply_text("🛑 Đã dừng tấn công.")
+        await update.message.reply_text("🛑 Đã dừng.")
 
-# === LỆNH STOP ===
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_running, browser
     is_running = False
@@ -182,14 +160,27 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     await update.message.reply_text("🛑 Đã gửi lệnh dừng.")
 
+# === KHỞI TẠO BOT ===
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("attack", attack))
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    print("🤖 Bot đang chạy...")
-    app.run_polling()
+
+    # Lấy URL public của Render (tự động cấp)
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    if render_url:
+        # Dùng webhook
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get("PORT", 10000)),
+            webhook_url=f"{render_url}/webhook",
+            drop_pending_updates=True
+        )
+    else:
+        # Fallback polling (khi chạy local)
+        app.run_polling(timeout=30, drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
