@@ -171,16 +171,9 @@ def main():
     # Lấy URL public của Render (tự động cấp)
     render_url = os.getenv("RENDER_EXTERNAL_URL")
     if render_url:
-        # Dùng webhook
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=int(os.environ.get("PORT", 10000)),
-            webhook_url=f"{render_url}/webhook",
-            drop_pending_updates=True
-        )
-    else:
-        # Fallback polling (khi chạy local)
-        app.run_polling(timeout=30, drop_pending_updates=True)
+    # ... webhook
+else:
+    app.run_polling(timeout=30, drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
