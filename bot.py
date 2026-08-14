@@ -10,29 +10,16 @@ import nest_asyncio
 
 nest_asyncio.apply()
 
-# === THÔNG TIN CỐ ĐỊNH (đã nhúng cookie, user, pass) ===
+# === THÔNG TIN CỐ ĐỊNH ===
 BOT_TOKEN = "8663622587:AAFIO8Mvr6hLCqyKvdsD_fQ-hNRxwlyKjNM"
 
-FB_COOKIES = [
-    {"domain": ".facebook.com", "expirationDate": 1818244507.256036, "hostOnly": False, "httpOnly": False, "name": "c_user", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "100067984778655", "id": 1},
-    {"domain": ".facebook.com", "expirationDate": 1821268373.421146, "hostOnly": False, "httpOnly": True, "name": "datr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-aq3sWV4CaGn6EBAcZW5V", "id": 2},
-    {"domain": ".facebook.com", "expirationDate": 1818244511, "hostOnly": False, "httpOnly": False, "name": "fbl_st", "path": "/", "sameSite": "strict", "secure": True, "session": False, "storeId": "0", "value": "101729642%3BT%3A29778475", "id": 3},
-    {"domain": ".facebook.com", "expirationDate": 1794484510.265904, "hostOnly": False, "httpOnly": True, "name": "fr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "0pFOPZA36cAJQhgIG.AWejN28GQ4quG2Cf3etJ6V7qA2D8SuDN06iGw3yGlMuS31par44.Bqfn-_..AAA.0.0.BqfwIc.AWf9RzfZ1_57nm2nHAGCskiv4wk", "id": 4},
-    {"domain": ".facebook.com", "expirationDate": 1787280009.337014, "hostOnly": False, "httpOnly": False, "name": "locale", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "vi_VN", "id": 5},
-    {"domain": ".facebook.com", "hostOnly": False, "httpOnly": False, "name": "m_pixel_ratio", "path": "/", "sameSite": "unspecified", "secure": True, "session": True, "storeId": "0", "value": "2.625", "id": 6},
-    {"domain": ".facebook.com", "expirationDate": 1821268510.266276, "hostOnly": False, "httpOnly": True, "name": "pas", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "100067984778655%3ARQQlypdm5P", "id": 7},
-    {"domain": ".facebook.com", "expirationDate": 1821235272.860229, "hostOnly": False, "httpOnly": True, "name": "ps_l", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "1", "id": 8},
-    {"domain": ".facebook.com", "expirationDate": 1821235272.860385, "hostOnly": False, "httpOnly": True, "name": "ps_n", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "1", "id": 9},
-    {"domain": ".facebook.com", "expirationDate": 1821268507.258444, "hostOnly": False, "httpOnly": True, "name": "sb", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-ahyiqwkPevzaL3IyMURk", "id": 10},
-    {"domain": ".facebook.com", "expirationDate": 1791892511, "hostOnly": False, "httpOnly": False, "name": "vpd", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "v1%3B731x412x2.625", "id": 11},
-    {"domain": ".facebook.com", "hostOnly": False, "httpOnly": False, "name": "wd", "path": "/", "sameSite": "unspecified", "secure": True, "session": True, "storeId": "0", "value": "412x869", "id": 12},
-    {"domain": ".facebook.com", "expirationDate": 1794484510, "hostOnly": False, "httpOnly": False, "name": "wl_cbv", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v2%3Bclient_version%3A3248%3Btimestamp%3A1786708508", "id": 13},
-    {"domain": ".facebook.com", "expirationDate": 1818244507.258862, "hostOnly": False, "httpOnly": True, "name": "xs", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "30%3An9p7CuIv_HLSDw%3A2%3A1786708502%3A-1%3A-1", "id": 14}
-]
+# Mặc định target (có thể thay đổi qua lệnh /settarget)
+TARGET_URL = "https://www.facebook.com/profile.php?id=61557730067730"
 
+FB_COOKIES = [ ... ]  # (giữ nguyên danh sách cookie của bạn)
 FB_USER = "0347999535"
 FB_PASS = "qhmaicute"
-PROXY = None   # Để trống nếu không dùng proxy
+PROXY = None
 
 COORDINATES = []
 is_running = False
@@ -50,10 +37,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🤖 *Bot Dame Auto FB*\n"
         "📤 Gửi file JSON tọa độ (có key x, y)\n"
+        "🔗 /settarget <url> – Đổi URL mục tiêu\n"
+        "🔍 /showtarget – Xem URL hiện tại\n"
         "▶️ /attack – Bắt đầu click\n"
         "⏹ /stop   – Dừng ngay",
         parse_mode="Markdown"
     )
+
+# === LỆNH SET TARGET ===
+async def set_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global TARGET_URL
+    args = context.args
+    if not args:
+        await update.message.reply_text("❌ Cần cung cấp URL. Ví dụ: /settarget https://www.facebook.com/...")
+        return
+    new_url = args[0].strip()
+    if not (new_url.startswith("http://") or new_url.startswith("https://")):
+        await update.message.reply_text("❌ URL không hợp lệ (phải bắt đầu bằng http:// hoặc https://)")
+        return
+    TARGET_URL = new_url
+    await update.message.reply_text(f"✅ Đã đổi mục tiêu thành:\n{TARGET_URL}")
+
+# === LỆNH SHOW TARGET ===
+async def show_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"🎯 Mục tiêu hiện tại:\n{TARGET_URL}")
 
 # === NHẬN FILE JSON ===
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,7 +83,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === LỆNH ATTACK ===
 async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global is_running, browser
+    global is_running, browser, TARGET_URL
     if not COORDINATES:
         await update.message.reply_text("❌ Chưa có tọa độ. Hãy gửi file JSON trước.")
         return
@@ -85,7 +92,7 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     is_running = True
-    await update.message.reply_text(f"🔥 Bắt đầu tấn công với {len(COORDINATES)} tọa độ...")
+    await update.message.reply_text(f"🔥 Bắt đầu tấn công vào {TARGET_URL} với {len(COORDINATES)} tọa độ...")
 
     async with async_playwright() as p:
         launch_opts = {
@@ -123,8 +130,13 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await page.wait_for_timeout(5000)
             await page.wait_for_selector('div[role="main"]', timeout=15000)
             await update.message.reply_text("✅ Đăng nhập thành công.")
+            
+            # === ĐIỀU HƯỚNG ĐẾN URL MỤC TIÊU ===
+            await page.goto(TARGET_URL, timeout=60000)
+            await page.wait_for_load_state("networkidle", timeout=10000)
+            await update.message.reply_text(f"✅ Đã vào trang mục tiêu: {TARGET_URL}")
         except Exception as e:
-            await update.message.reply_text(f"⚠️ Lỗi đăng nhập: {e}")
+            await update.message.reply_text(f"⚠️ Lỗi đăng nhập hoặc điều hướng: {e}")
             await browser.close()
             is_running = False
             return
@@ -169,6 +181,8 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("settarget", set_target))
+    app.add_handler(CommandHandler("showtarget", show_target))
     app.add_handler(CommandHandler("attack", attack))
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
