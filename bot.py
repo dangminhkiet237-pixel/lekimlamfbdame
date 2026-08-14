@@ -2,6 +2,7 @@ import asyncio
 import json
 import random
 import os
+import time
 from telegram import Update, Document
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from playwright.async_api import async_playwright
@@ -12,8 +13,6 @@ nest_asyncio.apply()
 
 # === THÔNG TIN CỐ ĐỊNH ===
 BOT_TOKEN = "8663622587:AAFIO8Mvr6hLCqyKvdsD_fQ-hNRxwlyKjNM"
-
-# Mặc định target (có thể thay đổi qua lệnh /settarget)
 TARGET_URL = "https://www.facebook.com/profile.php?id=61557730067730"
 
 FB_COOKIES = [ ... ]  # (giữ nguyên danh sách cookie của bạn)
@@ -24,6 +23,8 @@ PROXY = None
 COORDINATES = []
 is_running = False
 browser = None
+total_clicks = 0
+start_time = None
 
 # === HÀM XỬ LÝ FILE JSON ===
 def parse_coord_json(content: bytes) -> list:
@@ -39,10 +40,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📤 Gửi file JSON tọa độ (có key x, y)\n"
         "🔗 /settarget <url> – Đổi URL mục tiêu\n"
         "🔍 /showtarget – Xem URL hiện tại\n"
+        "📊 /status – Xem trạng thái tấn công\n"
         "▶️ /attack – Bắt đầu click\n"
         "⏹ /stop   – Dừng ngay",
         parse_mode="Markdown"
     )
+
+# === LỆNH STATUS ===
+async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global is_running, total_clicks, start_time, TARGET_URL, COORDINATES
+    status_text = "📊 *Trạng thái tấn công*\n\n"
+    status_text += f"🔹 Trạng thái: {'🟢 Đang chạy' if is_running else '🔴 Đã dừng'}\n"
+    status_text += f"🎯 Mục tiêu: {TARGET_URL}\n"
+    status_text += f"📌 Số tọa độ: {len(COORDINATES)}\n"
+    status_text += f"🖱️ Tổng click: {total_clicks}\n"
+    if start_time and is_running:
+        elapsed = int(time.time() - start_time)
+        m, s = divmod(elapsed, 60)
+        h, m = divmod(m, 60)
+        status_text += f"⏱️ Thời gian chạy: {h:02d}:{m:02d}:{s:02d}\n"
+    else:
+        status_text += "⏱️ Thời gian chạy: 00:00:00\n"
+    await update.message.reply_text(status_text, parse_mode="Markdown")
 
 # === LỆNH SET TARGET ===
 async def set_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -83,7 +102,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === LỆNH ATTACK ===
 async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global is_running, browser, TARGET_URL
+    global is_running, browser, total_clicks, start_time, TARGET_URL
     if not COORDINATES:
         await update.message.reply_text("❌ Chưa có tọa độ. Hãy gửi file JSON trước.")
         return
@@ -92,6 +111,8 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     is_running = True
+    total_clicks = 0
+    start_time = time.time()
     await update.message.reply_text(f"🔥 Bắt đầu tấn công vào {TARGET_URL} với {len(COORDINATES)} tọa độ...")
 
     async with async_playwright() as p:
@@ -141,7 +162,8 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             is_running = False
             return
 
-        # === VÒNG LẶP CLICK ===
+        # === VÒNG LẶP CLICK VỚI BÁO CÁO ===
+        last_report_time = time.time()
         loop_count = 0
         while is_running:
             for coord in COORDINATES:
@@ -152,8 +174,21 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await page.mouse.click(x, y)
                     await asyncio.sleep(random.uniform(0.3, 0.8))
                     loop_count += 1
-                    if loop_count % 30 == 0:
-                        await update.message.reply_text(f"✅ Đã click {loop_count} lần")
+                    total_clicks += 1
+                    
+                    # Gửi báo cáo mỗi 100 click hoặc mỗi 60 giây
+                    if loop_count % 100 == 0 or (time.time() - last_report_time) >= 60:
+                        elapsed = int(time.time() - start_time)
+                        m, s = divmod(elapsed, 60)
+                        h, m = divmod(m, 60)
+                        await update.message.reply_text(
+                            f"📊 *Báo cáo*\n"
+                            f"🖱️ Đã click: {total_clicks}\n"
+                            f"⏱️ Thời gian: {h:02d}:{m:02d}:{s:02d}\n"
+                            f"🎯 Mục tiêu: {TARGET_URL}",
+                            parse_mode="Markdown"
+                        )
+                        last_report_time = time.time()
                 except Exception as e:
                     await update.message.reply_text(f"⚠️ Lỗi click: {e}. Reload...")
                     await page.reload()
@@ -181,6 +216,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("status", status_cmd))
     app.add_handler(CommandHandler("settarget", set_target))
     app.add_handler(CommandHandler("showtarget", show_target))
     app.add_handler(CommandHandler("attack", attack))
