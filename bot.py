@@ -24,36 +24,212 @@ FB_USER = "0347999535"
 FB_PASS = "qhmaicute"
 PROXY = None
 
-# === HÀM KIỂM TRA VÀ TỰ ĐỘNG CÀI ĐẶT PLAYWRIGHT BROWSER ===
+# === COOKIE MỚI NHẤT (13 items) ===
+FB_COOKIES = [
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1818296539.966642,
+        "hostOnly": False,
+        "httpOnly": False,
+        "name": "c_user",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "100067984778655",
+        "id": 1
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1821323219.201854,
+        "hostOnly": False,
+        "httpOnly": True,
+        "name": "datr",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "v39-aq3sWV4CaGn6EBAcZW5V",
+        "id": 2
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1787320559,
+        "hostOnly": False,
+        "httpOnly": False,
+        "name": "dpr",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "1",
+        "id": 3
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1818300175,
+        "hostOnly": False,
+        "httpOnly": False,
+        "name": "fbl_st",
+        "path": "/",
+        "sameSite": "strict",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "101637987%3BT%3A29779402",
+        "id": 4
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1794540174.543766,
+        "hostOnly": False,
+        "httpOnly": True,
+        "name": "fr",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "0pFOPZA36cAJQhgIG.AWdCJOp3vpgqKZ2Tl-cnHvYF2_lQSxuFZcI2tcAJiwWJAlQUZIE.Bqfn-_..AAA.0.0.Bqf9uP.AWfUk7_aI6Y-XUclWeZ--qWG0hU",
+        "id": 5
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1787280009.337014,
+        "hostOnly": False,
+        "httpOnly": False,
+        "name": "locale",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "vi_VN",
+        "id": 6
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1821324174.544097,
+        "hostOnly": False,
+        "httpOnly": True,
+        "name": "pas",
+        "path": "/",
+        "sameSite": "lax",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "100067984778655%3ARQQlypdm5P",
+        "id": 7
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1821235272.860229,
+        "hostOnly": False,
+        "httpOnly": True,
+        "name": "ps_l",
+        "path": "/",
+        "sameSite": "lax",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "1",
+        "id": 8
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1821235272.860385,
+        "hostOnly": False,
+        "httpOnly": True,
+        "name": "ps_n",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "1",
+        "id": 9
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1821320539.967243,
+        "hostOnly": False,
+        "httpOnly": True,
+        "name": "sb",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "v39-ahyiqwkPevzaL3IyMURk",
+        "id": 10
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1791948175,
+        "hostOnly": False,
+        "httpOnly": False,
+        "name": "vpd",
+        "path": "/",
+        "sameSite": "lax",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "v1%3B731x412x2.625",
+        "id": 11
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1794540175,
+        "hostOnly": False,
+        "httpOnly": False,
+        "name": "wl_cbv",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "v2%3Bclient_version%3A3249%3Btimestamp%3A1786764175",
+        "id": 12
+    },
+    {
+        "domain": ".facebook.com",
+        "expirationDate": 1818296539.967325,
+        "hostOnly": False,
+        "httpOnly": True,
+        "name": "xs",
+        "path": "/",
+        "sameSite": "no_restriction",
+        "secure": True,
+        "session": False,
+        "storeId": "0",
+        "value": "47%3AmOiZsTKV5Rb25g%3A2%3A1786760539%3A-1%3A-1",
+        "id": 13
+    }
+]
+
+# === HÀM KIỂM TRA PLAYWRIGHT ===
 def ensure_playwright_browser():
-    """Kiểm tra xem chromium đã được cài chưa, nếu chưa thì tự động cài"""
     try:
-        # Thử khởi tạo playwright và launch chromium để kiểm tra
-        import playwright
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             browser.close()
-        logger.info("✅ Playwright chromium đã có sẵn.")
         return True
-    except Exception as e:
-        logger.warning(f"⚠️ Playwright chưa cài hoặc lỗi: {e}")
-        logger.info("🔄 Đang cài đặt Playwright chromium...")
+    except Exception:
+        logger.warning("Playwright chưa cài, đang cài đặt...")
         try:
-            # Chạy lệnh cài đặt
             subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True, capture_output=True)
-            logger.info("✅ Đã cài đặt Playwright chromium thành công.")
             return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"❌ Cài đặt thất bại: {e.stderr.decode()}")
+        except:
             return False
 
-# === GỌI HÀM KIỂM TRA KHI BOT KHỞI ĐỘNG ===
 if not ensure_playwright_browser():
-    logger.critical("❌ Không thể cài đặt Playwright. Vui lòng chạy thủ công: playwright install chromium")
-    # Vẫn tiếp tục nhưng sẽ báo lỗi khi attack
+    logger.critical("❌ Không thể cài Playwright, vui lòng chạy: playwright install chromium")
 
-# === DANH SÁCH BÁO CÁO ===
+# === DANH SÁCH BÁO CÁO (ĐẦY ĐỦ) ===
 REPORT_ITEMS = [
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Đe dọa chia sẻ hình ảnh khỏa thân của tôi"},
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Có vẻ giống hành vi bóc lột tình dục"},
@@ -224,11 +400,8 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Đang chạy rồi!")
         return
 
-    # Kiểm tra lại playwright trước khi chạy
     if not ensure_playwright_browser():
-        await update.message.reply_text("❌ Playwright chưa được cài. Bot sẽ tự động cài, vui lòng thử lại sau 1 phút.")
-        # Thử cài lại một lần nữa trong background
-        asyncio.create_task(run_install())
+        await update.message.reply_text("❌ Playwright chưa sẵn sàng, vui lòng chạy: playwright install chromium")
         return
 
     is_running = True
@@ -302,15 +475,6 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if browser:
                 await browser.close()
             is_running = False
-
-async def run_install():
-    # Hàm cài đặt nền
-    logger.info("Đang cài Playwright chromium trong nền...")
-    try:
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True, capture_output=True)
-        logger.info("✅ Cài đặt thành công.")
-    except Exception as e:
-        logger.error(f"❌ Cài đặt thất bại: {e}")
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_running, browser
