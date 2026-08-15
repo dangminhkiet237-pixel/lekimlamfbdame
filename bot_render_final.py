@@ -4,7 +4,6 @@ import logging
 import os
 import sys
 import time
-import subprocess
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
@@ -16,18 +15,14 @@ nest_asyncio.apply()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ===== CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG VỚI FALLBACK TOKEN =====
+# ===== CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG =====
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8663622587:AAFIO8Mvr6hLCqyKvdsD_fQ-hNRxwlyKjNM")
 DEFAULT_TARGET = os.environ.get("DEFAULT_TARGET", "https://www.facebook.com/profile.php?id=61557730067730")
 FB_USER = os.environ.get("FB_USER", "0347999535")
 FB_PASS = os.environ.get("FB_PASS", "qhmaicute")
 PROXY = os.environ.get("PROXY", None)
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-if not WEBHOOK_URL:
-    WEBHOOK_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')}/{BOT_TOKEN}"
-    logger.warning(f"WEBHOOK_URL tự tạo: {WEBHOOK_URL}")
 
-# ===== COOKIE (CÓ THỂ CẬP NHẬT QUA LỆNH) =====
+# ===== COOKIE (giữ nguyên) =====
 FB_COOKIES = [
     {"domain": ".facebook.com", "expirationDate": 1818296539.966642, "hostOnly": False, "httpOnly": False, "name": "c_user", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "100067984778655", "id": 1},
     {"domain": ".facebook.com", "expirationDate": 1821323219.201854, "hostOnly": False, "httpOnly": True, "name": "datr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-aq3sWV4CaGn6EBAcZW5V", "id": 2},
@@ -196,7 +191,7 @@ async def perform_report(page, main_reason, sub_reason):
 # ===== LỆNH TELEGRAM =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 *Auto Report FB – Render Deploy*\n"
+        "🤖 *Auto Report FB – Render Deploy (Fixed Webhook)*\n"
         "▶️ /attack – Bắt đầu\n"
         "⏹ /stop – Dừng\n"
         "📊 /status – Trạng thái\n"
@@ -389,7 +384,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     await update.message.reply_text("🛑 Đã dừng.")
 
-# ===== MAIN =====
+# ===== MAIN – FIX WEBHOOK HTTPS =====
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
@@ -401,15 +396,27 @@ def main():
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(MessageHandler(filters.Document.ALL, update_cookie))
 
-    # Set webhook
-    if WEBHOOK_URL:
-        app.bot.set_webhook(WEBHOOK_URL)
-        logger.info(f"Webhook set: {WEBHOOK_URL}")
-    else:
-        logger.warning("WEBHOOK_URL không set, chạy polling (không khuyến khích trên Render)")
+    # Xác định webhook URL
+    webhook_url = os.environ.get("WEBHOOK_URL")
+    if not webhook_url:
+        host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+        if host:
+            webhook_url = f"https://{host}/{BOT_TOKEN}"
+        else:
+            webhook_url = None
 
-    port = int(os.environ.get("PORT", 10000))
-    app.run_webhook(listen="0.0.0.0", port=port, url_path=BOT_TOKEN)
+    if webhook_url and webhook_url.startswith("https://"):
+        try:
+            app.bot.set_webhook(webhook_url)
+            logger.info(f"Webhook set: {webhook_url}")
+            port = int(os.environ.get("PORT", 10000))
+            app.run_webhook(listen="0.0.0.0", port=port, url_path=BOT_TOKEN)
+        except Exception as e:
+            logger.error(f"Webhook setup failed: {e}, falling back to polling")
+            app.run_polling()
+    else:
+        logger.warning("Không có webhook HTTPS hợp lệ, chạy polling")
+        app.run_polling()
 
 if __name__ == "__main__":
     main()
