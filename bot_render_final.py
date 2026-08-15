@@ -2,15 +2,10 @@ import asyncio
 import json
 import logging
 import os
-import sys
-import time
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 from playwright_stealth import stealth_async
-import nest_asyncio
-
-nest_asyncio.apply()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -114,12 +109,9 @@ async def find_more_button(page):
     ]
     for sel in selectors:
         try:
-            if sel.startswith('//'):
-                el = await page.locator(sel).first
-            else:
-                el = await page.query_selector(sel)
-            if el and await el.is_visible():
-                return el
+            loc = page.locator(sel).first
+            if await loc.is_visible():
+                return loc
         except:
             continue
     try:
@@ -385,7 +377,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🛑 Đã dừng.")
 
 # ===== MAIN – FIX WEBHOOK HTTPS =====
-def main():
+async def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status_cmd))
@@ -401,22 +393,35 @@ def main():
     if not webhook_url:
         host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
         if host:
-            webhook_url = f"https://{host}/{BOT_TOKEN}"
-        else:
-            webhook_url = None
+            # Nếu host đã có sẵn http:// hoặc https:// thì giữ nguyên
+            if host.startswith("http://") or host.startswith("https://"):
+                webhook_url = f"{host.rstrip('/')}/{BOT_TOKEN}"
+            else:
+                webhook_url = f"https://{host}/{BOT_TOKEN}"
 
+    # Chỉ chạy webhook nếu URL hợp lệ
     if webhook_url and webhook_url.startswith("https://"):
         try:
-            app.bot.set_webhook(webhook_url)
+            await app.bot.set_webhook(webhook_url)
             logger.info(f"Webhook set: {webhook_url}")
-            port = int(os.environ.get("PORT", 10000))
-            app.run_webhook(listen="0.0.0.0", port=port, url_path=BOT_TOKEN)
+
+            port = int(os.environ.get("PORT", "10000"))
+            await app.run_webhook(
+                listen="0.0.0.0",
+                port=port,
+                url_path=BOT_TOKEN
+            )
         except Exception as e:
-            logger.error(f"Webhook setup failed: {e}, falling back to polling")
-            app.run_polling()
+            logger.error(f"Webhook setup failed: {e}. Falling back to polling.")
+            # Xóa webhook cũ nếu có lỗi
+            try:
+                await app.bot.delete_webhook()
+            except Exception:
+                pass
+            await app.run_polling()
     else:
-        logger.warning("Không có webhook HTTPS hợp lệ, chạy polling")
-        app.run_polling()
+        logger.warning("Không có webhook HTTPS hợp lệ, chạy polling.")
+        await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
