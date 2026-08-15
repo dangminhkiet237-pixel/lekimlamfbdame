@@ -1,11 +1,10 @@
 import asyncio
 import json
-import random
-import time
 import logging
-import subprocess
-import sys
 import os
+import sys
+import time
+import subprocess
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
@@ -17,219 +16,35 @@ nest_asyncio.apply()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# === CẤU HÌNH ===
-BOT_TOKEN = "8663622587:AAFIO8Mvr6hLCqyKvdsD_fQ-hNRxwlyKjNM"
-DEFAULT_TARGET = "https://www.facebook.com/profile.php?id=61557730067730"
-FB_USER = "0347999535"
-FB_PASS = "qhmaicute"
-PROXY = None  # Có thể đặt proxy nếu cần
+# ===== CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG VỚI FALLBACK TOKEN =====
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8663622587:AAFIO8Mvr6hLCqyKvdsD_fQ-hNRxwlyKjNM")
+DEFAULT_TARGET = os.environ.get("DEFAULT_TARGET", "https://www.facebook.com/profile.php?id=61557730067730")
+FB_USER = os.environ.get("FB_USER", "0347999535")
+FB_PASS = os.environ.get("FB_PASS", "qhmaicute")
+PROXY = os.environ.get("PROXY", None)
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+if not WEBHOOK_URL:
+    WEBHOOK_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')}/{BOT_TOKEN}"
+    logger.warning(f"WEBHOOK_URL tự tạo: {WEBHOOK_URL}")
 
-# === COOKIE MỚI NHẤT (13 items) ===
+# ===== COOKIE (CÓ THỂ CẬP NHẬT QUA LỆNH) =====
 FB_COOKIES = [
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1818296539.966642,
-        "hostOnly": False,
-        "httpOnly": False,
-        "name": "c_user",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "100067984778655",
-        "id": 1
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1821323219.201854,
-        "hostOnly": False,
-        "httpOnly": True,
-        "name": "datr",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "v39-aq3sWV4CaGn6EBAcZW5V",
-        "id": 2
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1787320559,
-        "hostOnly": False,
-        "httpOnly": False,
-        "name": "dpr",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "1",
-        "id": 3
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1818300175,
-        "hostOnly": False,
-        "httpOnly": False,
-        "name": "fbl_st",
-        "path": "/",
-        "sameSite": "strict",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "101637987%3BT%3A29779402",
-        "id": 4
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1794540174.543766,
-        "hostOnly": False,
-        "httpOnly": True,
-        "name": "fr",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "0pFOPZA36cAJQhgIG.AWdCJOp3vpgqKZ2Tl-cnHvYF2_lQSxuFZcI2tcAJiwWJAlQUZIE.Bqfn-_..AAA.0.0.Bqf9uP.AWfUk7_aI6Y-XUclWeZ--qWG0hU",
-        "id": 5
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1787280009.337014,
-        "hostOnly": False,
-        "httpOnly": False,
-        "name": "locale",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "vi_VN",
-        "id": 6
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1821324174.544097,
-        "hostOnly": False,
-        "httpOnly": True,
-        "name": "pas",
-        "path": "/",
-        "sameSite": "lax",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "100067984778655%3ARQQlypdm5P",
-        "id": 7
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1821235272.860229,
-        "hostOnly": False,
-        "httpOnly": True,
-        "name": "ps_l",
-        "path": "/",
-        "sameSite": "lax",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "1",
-        "id": 8
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1821235272.860385,
-        "hostOnly": False,
-        "httpOnly": True,
-        "name": "ps_n",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "1",
-        "id": 9
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1821320539.967243,
-        "hostOnly": False,
-        "httpOnly": True,
-        "name": "sb",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "v39-ahyiqwkPevzaL3IyMURk",
-        "id": 10
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1791948175,
-        "hostOnly": False,
-        "httpOnly": False,
-        "name": "vpd",
-        "path": "/",
-        "sameSite": "lax",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "v1%3B731x412x2.625",
-        "id": 11
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1794540175,
-        "hostOnly": False,
-        "httpOnly": False,
-        "name": "wl_cbv",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "v2%3Bclient_version%3A3249%3Btimestamp%3A1786764175",
-        "id": 12
-    },
-    {
-        "domain": ".facebook.com",
-        "expirationDate": 1818296539.967325,
-        "hostOnly": False,
-        "httpOnly": True,
-        "name": "xs",
-        "path": "/",
-        "sameSite": "no_restriction",
-        "secure": True,
-        "session": False,
-        "storeId": "0",
-        "value": "47%3AmOiZsTKV5Rb25g%3A2%3A1786760539%3A-1%3A-1",
-        "id": 13
-    }
+    {"domain": ".facebook.com", "expirationDate": 1818296539.966642, "hostOnly": False, "httpOnly": False, "name": "c_user", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "100067984778655", "id": 1},
+    {"domain": ".facebook.com", "expirationDate": 1821323219.201854, "hostOnly": False, "httpOnly": True, "name": "datr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-aq3sWV4CaGn6EBAcZW5V", "id": 2},
+    {"domain": ".facebook.com", "expirationDate": 1787320559, "hostOnly": False, "httpOnly": False, "name": "dpr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "1", "id": 3},
+    {"domain": ".facebook.com", "expirationDate": 1818300175, "hostOnly": False, "httpOnly": False, "name": "fbl_st", "path": "/", "sameSite": "strict", "secure": True, "session": False, "storeId": "0", "value": "101637987%3BT%3A29779402", "id": 4},
+    {"domain": ".facebook.com", "expirationDate": 1794540174.543766, "hostOnly": False, "httpOnly": True, "name": "fr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "0pFOPZA36cAJQhgIG.AWdCJOp3vpgqKZ2Tl-cnHvYF2_lQSxuFZcI2tcAJiwWJAlQUZIE.Bqfn-_..AAA.0.0.Bqf9uP.AWfUk7_aI6Y-XUclWeZ--qWG0hU", "id": 5},
+    {"domain": ".facebook.com", "expirationDate": 1787280009.337014, "hostOnly": False, "httpOnly": False, "name": "locale", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "vi_VN", "id": 6},
+    {"domain": ".facebook.com", "expirationDate": 1821324174.544097, "hostOnly": False, "httpOnly": True, "name": "pas", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "100067984778655%3ARQQlypdm5P", "id": 7},
+    {"domain": ".facebook.com", "expirationDate": 1821235272.860229, "hostOnly": False, "httpOnly": True, "name": "ps_l", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "1", "id": 8},
+    {"domain": ".facebook.com", "expirationDate": 1821235272.860385, "hostOnly": False, "httpOnly": True, "name": "ps_n", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "1", "id": 9},
+    {"domain": ".facebook.com", "expirationDate": 1821320539.967243, "hostOnly": False, "httpOnly": True, "name": "sb", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-ahyiqwkPevzaL3IyMURk", "id": 10},
+    {"domain": ".facebook.com", "expirationDate": 1791948175, "hostOnly": False, "httpOnly": False, "name": "vpd", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "v1%3B731x412x2.625", "id": 11},
+    {"domain": ".facebook.com", "expirationDate": 1794540175, "hostOnly": False, "httpOnly": False, "name": "wl_cbv", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v2%3Bclient_version%3A3249%3Btimestamp%3A1786764175", "id": 12},
+    {"domain": ".facebook.com", "expirationDate": 1818296539.967325, "hostOnly": False, "httpOnly": True, "name": "xs", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "47%3AmOiZsTKV5Rb25g%3A2%3A1786760539%3A-1%3A-1", "id": 13}
 ]
 
-# === HÀM KIỂM TRA PLAYWRIGHT ===
-def ensure_playwright_browser():
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            browser.close()
-        return True
-    except Exception:
-        logger.warning("Playwright chưa cài, đang cài đặt...")
-        try:
-            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True, capture_output=True)
-            return True
-        except:
-            return False
-
-if not ensure_playwright_browser():
-    logger.critical("❌ Không thể cài Playwright, vui lòng chạy: playwright install chromium")
-
-# === DANH SÁCH BÁO CÁO (ĐẦY ĐỦ) ===
+# ===== DANH SÁCH BÁO CÁO ĐẦY ĐỦ =====
 REPORT_ITEMS = [
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Đe dọa chia sẻ hình ảnh khỏa thân của tôi"},
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Có vẻ giống hành vi bóc lột tình dục"},
@@ -271,7 +86,7 @@ REPORT_ITEMS = [
     {"main": "Vấn đề khác", "sub": None}
 ]
 
-# === BIẾN TOÀN CỤC ===
+# ===== BIẾN TOÀN CỤC =====
 TARGET_URL = DEFAULT_TARGET
 is_running = False
 browser = None
@@ -284,9 +99,8 @@ MAX_RETRY_PER_REASON = 3
 TIMEOUT_NAVIGATE = 30000
 TIMEOUT_SELECTOR = 10000
 
-# === HÀM TÌM NÚT (CẢI TIẾN VỚI NHIỀU FALLBACK) ===
+# ===== HÀM TÌM NÚT =====
 async def find_more_button(page):
-    # Danh sách selector đa dạng
     selectors = [
         'div[aria-label="Hành động"]',
         'div[aria-label="Actions"]',
@@ -303,7 +117,6 @@ async def find_more_button(page):
         '//div[contains(@aria-label, "Hành động")]',
         '//div[contains(@aria-label, "Actions")]'
     ]
-    
     for sel in selectors:
         try:
             if sel.startswith('//'):
@@ -311,24 +124,15 @@ async def find_more_button(page):
             else:
                 el = await page.query_selector(sel)
             if el and await el.is_visible():
-                logger.info(f"Tìm thấy more button với selector: {sel}")
                 return el
-        except Exception as e:
-            logger.debug(f"Selector {sel} lỗi: {e}")
+        except:
             continue
-    
-    # Fallback cuối: click vào vị trí góc phải (không dùng tọa độ cứng)
     try:
-        await page.evaluate('''
-            const el = document.elementFromPoint(window.innerWidth - 80, 120);
-            if (el) el.click();
-        ''')
-        logger.warning("Đã click fallback góc phải")
+        await page.evaluate('document.elementFromPoint(window.innerWidth-80, 120)?.click()')
         return True
     except:
         return None
 
-# === HÀM CHỜ TEXT (CÓ RETRY) ===
 async def wait_for_text(page, text, timeout=TIMEOUT_SELECTOR, retry=2):
     for attempt in range(retry + 1):
         try:
@@ -337,63 +141,48 @@ async def wait_for_text(page, text, timeout=TIMEOUT_SELECTOR, retry=2):
             return await page.query_selector(xpath)
         except PlaywrightTimeoutError:
             if attempt < retry:
-                logger.warning(f"Chờ text '{text}' timeout, thử lại ({attempt+1}/{retry})")
                 await asyncio.sleep(1)
             else:
-                logger.error(f"Không tìm thấy text '{text}' sau {retry+1} lần")
                 return None
     return None
 
-# === BÁO CÁO MỘT LÝ DO (CÓ RETRY NỘI BỘ) ===
 async def perform_report(page, main_reason, sub_reason):
     try:
-        # 1. Mở menu "..."
         more = await find_more_button(page)
         if not more:
             return False
-        if more is not True:  # không phải fallback
+        if more is not True:
             await more.click()
         await asyncio.sleep(DELAY_STEP)
 
-        # 2. Chọn "Báo cáo" – thử nhiều biến thể
         report_btn = await wait_for_text(page, "Báo cáo") or await wait_for_text(page, "Tìm hỗ trợ") or await wait_for_text(page, "Report")
         if not report_btn:
-            logger.error("Không tìm thấy nút báo cáo")
             return False
         await report_btn.click()
         await asyncio.sleep(DELAY_STEP)
 
-        # 3. Lý do chính – thử biến thể
         main_el = await wait_for_text(page, main_reason, timeout=TIMEOUT_SELECTOR, retry=2)
         if not main_el:
-            # Biến thể đơn giản hóa
-            simple = main_reason.replace("lăng mạ/lạm dụng/ngược đãi", "lạm dụng").replace("người lớn", "adult")
+            simple = main_reason.replace("lăng mạ/lạm dụng/ngược đãi", "lạm dụng")
             main_el = await wait_for_text(page, simple, timeout=5000, retry=1)
         if not main_el:
-            logger.error(f"Không tìm thấy lý do chính: {main_reason}")
             return False
         await main_el.click()
         await asyncio.sleep(DELAY_STEP)
 
-        # 4. Sub (nếu có)
         if sub_reason:
             sub_el = await wait_for_text(page, sub_reason, timeout=5000, retry=1)
             if sub_el:
                 await sub_el.click()
                 await asyncio.sleep(DELAY_STEP)
-            else:
-                logger.warning(f"Không tìm thấy sub '{sub_reason}', bỏ qua")
 
-        # 5. Nút gửi (2 lần)
         submit_btn = await wait_for_text(page, "Báo cáo ngay") or await wait_for_text(page, "Gửi") or await wait_for_text(page, "Tiếp tục")
         if not submit_btn:
-            # Thử tìm button
             try:
                 submit_btn = await page.query_selector('button[type="submit"]')
             except:
                 pass
         if not submit_btn:
-            logger.error("Không tìm thấy nút gửi")
             return False
         await submit_btn.click()
         await asyncio.sleep(0.5)
@@ -401,25 +190,26 @@ async def perform_report(page, main_reason, sub_reason):
         await asyncio.sleep(DELAY_SUBMIT)
         return True
     except Exception as e:
-        logger.error(f"Lỗi trong perform_report: {e}")
+        logger.error(f"Lỗi perform_report: {e}")
         return False
 
-# === LỆNH TELEGRAM ===
+# ===== LỆNH TELEGRAM =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 *Auto Report FB v2 (DOM, timeout cao)*\n"
+        "🤖 *Auto Report FB – Render Deploy*\n"
         "▶️ /attack – Bắt đầu\n"
         "⏹ /stop – Dừng\n"
         "📊 /status – Trạng thái\n"
         "🔗 /settarget <url> – Đổi target\n"
         "⚡ /setdelay <giây> – Điều chỉnh tốc độ\n"
-        "🔄 /reload – Load lại trang (khi đang chạy)",
+        "🔄 /reload – Load lại trang\n"
+        "📥 Gửi file JSON để cập nhật cookie",
         parse_mode="Markdown"
     )
 
 async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_running, report_count, current_index, TARGET_URL
-    txt = f"📊 *Trạng thái*\n🔹 Chạy: {'🟢' if is_running else '🔴'}\n🎯 {TARGET_URL}\n📌 Đã báo: {report_count}/{total_items}\n⏳ Hiện tại: {REPORT_ITEMS[current_index]['main'] if current_index < total_items else 'Hoàn thành'}"
+    txt = f"📊 *Trạng thái*\n🔹 Chạy: {'🟢' if is_running else '🔴'}\n🎯 {TARGET_URL}\n📌 Đã báo: {report_count}/{total_items}\n⏳ Hiện tại: {REPORT_ITEMS[current_index]['main'] if current_index < total_items else 'Hoàn thành'}\n⚡ Delay: {DELAY_STEP:.2f}s"
     await update.message.reply_text(txt, parse_mode="Markdown")
 
 async def set_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -468,14 +258,27 @@ async def reload_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ Browser không tồn tại.")
 
+async def update_cookie(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global FB_COOKIES
+    doc = update.message.document
+    if not doc.file_name.endswith(".json"):
+        await update.message.reply_text("❌ Vui lòng gửi file .json")
+        return
+    file = await doc.get_file()
+    raw = await file.download_as_bytearray()
+    try:
+        new_cookies = json.loads(bytes(raw))
+        if not isinstance(new_cookies, list):
+            raise ValueError("File phải là mảng cookie")
+        FB_COOKIES = new_cookies
+        await update.message.reply_text(f"✅ Đã cập nhật {len(FB_COOKIES)} cookie mới.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi: {e}")
+
 async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_running, browser, current_index, report_count
     if is_running:
         await update.message.reply_text("⚠️ Đang chạy rồi!")
-        return
-
-    if not ensure_playwright_browser():
-        await update.message.reply_text("❌ Playwright chưa sẵn sàng, vui lòng chạy: playwright install chromium")
         return
 
     is_running = True
@@ -507,7 +310,6 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             page = await ctx.new_page()
             await stealth_async(page)
 
-            # Đăng nhập bằng cookie
             cookies = [{"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c.get("path", "/"), "secure": c.get("secure", True)} for c in FB_COOKIES]
             await ctx.add_cookies(cookies)
             await page.goto("https://facebook.com", timeout=TIMEOUT_NAVIGATE)
@@ -521,9 +323,8 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await page.wait_for_selector('div[role="main"]', timeout=TIMEOUT_NAVIGATE)
                 await update.message.reply_text("✅ Đăng nhập thành công.")
             except:
-                await update.message.reply_text("⚠️ Không xác định được trang chính, nhưng vẫn thử tiếp.")
+                await update.message.reply_text("⚠️ Không xác định được trang chính, vẫn thử tiếp.")
 
-            # Vòng lặp báo cáo
             while is_running and current_index < total_items:
                 item = REPORT_ITEMS[current_index]
                 await update.message.reply_text(f"📌 Đang báo: {item['main']} → {item.get('sub', 'không')}")
@@ -533,7 +334,6 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if not is_running:
                         break
                     try:
-                        # Điều hướng target với retry
                         for nav_try in range(2):
                             try:
                                 await page.goto(TARGET_URL, timeout=TIMEOUT_NAVIGATE)
@@ -544,7 +344,6 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     await asyncio.sleep(2)
                                 else:
                                     raise
-                        # Thực hiện báo cáo
                         result = await perform_report(page, item["main"], item.get("sub"))
                         if result:
                             success = True
@@ -590,9 +389,9 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     await update.message.reply_text("🛑 Đã dừng.")
 
-# === MAIN ===
+# ===== MAIN =====
 def main():
-    app = Application.builder().token(BOT_TOKEN).connect_timeout(60).read_timeout(60).build()
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status_cmd))
     app.add_handler(CommandHandler("settarget", set_target))
@@ -600,8 +399,17 @@ def main():
     app.add_handler(CommandHandler("reload", reload_cmd))
     app.add_handler(CommandHandler("attack", attack))
     app.add_handler(CommandHandler("stop", stop))
-    logger.info("Bot đang chạy...")
-    app.run_polling(timeout=60, drop_pending_updates=True)
+    app.add_handler(MessageHandler(filters.Document.ALL, update_cookie))
+
+    # Set webhook
+    if WEBHOOK_URL:
+        app.bot.set_webhook(WEBHOOK_URL)
+        logger.info(f"Webhook set: {WEBHOOK_URL}")
+    else:
+        logger.warning("WEBHOOK_URL không set, chạy polling (không khuyến khích trên Render)")
+
+    port = int(os.environ.get("PORT", 10000))
+    app.run_webhook(listen="0.0.0.0", port=port, url_path=BOT_TOKEN)
 
 if __name__ == "__main__":
     main()
