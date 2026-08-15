@@ -353,7 +353,7 @@ async def perform_report(page, main_reason, sub_reason):
 # === LỆNH TELEGRAM ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 *Auto Report FB (DOM, không tọa độ)*\n"
+        "🤖 *Auto dame fb (bylekimlam)*\n"
         "▶️ /attack – Bắt đầu\n"
         "⏹ /stop – Dừng\n"
         "📊 /status – Trạng thái\n"
