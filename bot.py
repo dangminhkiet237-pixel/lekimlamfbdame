@@ -3,6 +3,9 @@ import json
 import random
 import time
 import logging
+import subprocess
+import sys
+import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
@@ -11,50 +14,86 @@ import nest_asyncio
 
 nest_asyncio.apply()
 
-# === LOGGING ===
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# === THÔNG TIN CỐ ĐỊNH ===
+# === CẤU HÌNH ===
 BOT_TOKEN = "8663622587:AAFIO8Mvr6hLCqyKvdsD_fQ-hNRxwlyKjNM"
 DEFAULT_TARGET = "https://www.facebook.com/profile.php?id=61557730067730"
 FB_USER = "0347999535"
 FB_PASS = "qhmaicute"
 PROXY = None
 
-FB_COOKIES = [
-    {"domain": ".facebook.com", "expirationDate": 1818244507.256036, "hostOnly": False, "httpOnly": False, "name": "c_user", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "100067984778655", "id": 1},
-    {"domain": ".facebook.com", "expirationDate": 1821268373.421146, "hostOnly": False, "httpOnly": True, "name": "datr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-aq3sWV4CaGn6EBAcZW5V", "id": 2},
-    {"domain": ".facebook.com", "expirationDate": 1818244511, "hostOnly": False, "httpOnly": False, "name": "fbl_st", "path": "/", "sameSite": "strict", "secure": True, "session": False, "storeId": "0", "value": "101729642%3BT%3A29778475", "id": 3},
-    {"domain": ".facebook.com", "expirationDate": 1794484510.265904, "hostOnly": False, "httpOnly": True, "name": "fr", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "0pFOPZA36cAJQhgIG.AWejN28GQ4quG2Cf3etJ6V7qA2D8SuDN06iGw3yGlMuS31par44.Bqfn-_..AAA.0.0.BqfwIc.AWf9RzfZ1_57nm2nHAGCskiv4wk", "id": 4},
-    {"domain": ".facebook.com", "expirationDate": 1787280009.337014, "hostOnly": False, "httpOnly": False, "name": "locale", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "vi_VN", "id": 5},
-    {"domain": ".facebook.com", "hostOnly": False, "httpOnly": False, "name": "m_pixel_ratio", "path": "/", "sameSite": "unspecified", "secure": True, "session": True, "storeId": "0", "value": "2.625", "id": 6},
-    {"domain": ".facebook.com", "expirationDate": 1821268510.266276, "hostOnly": False, "httpOnly": True, "name": "pas", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "100067984778655%3ARQQlypdm5P", "id": 7},
-    {"domain": ".facebook.com", "expirationDate": 1821235272.860229, "hostOnly": False, "httpOnly": True, "name": "ps_l", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "1", "id": 8},
-    {"domain": ".facebook.com", "expirationDate": 1821235272.860385, "hostOnly": False, "httpOnly": True, "name": "ps_n", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "1", "id": 9},
-    {"domain": ".facebook.com", "expirationDate": 1821268507.258444, "hostOnly": False, "httpOnly": True, "name": "sb", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v39-ahyiqwkPevzaL3IyMURk", "id": 10},
-    {"domain": ".facebook.com", "expirationDate": 1791892511, "hostOnly": False, "httpOnly": False, "name": "vpd", "path": "/", "sameSite": "lax", "secure": True, "session": False, "storeId": "0", "value": "v1%3B731x412x2.625", "id": 11},
-    {"domain": ".facebook.com", "hostOnly": False, "httpOnly": False, "name": "wd", "path": "/", "sameSite": "unspecified", "secure": True, "session": True, "storeId": "0", "value": "412x869", "id": 12},
-    {"domain": ".facebook.com", "expirationDate": 1794484510, "hostOnly": False, "httpOnly": False, "name": "wl_cbv", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "v2%3Bclient_version%3A3248%3Btimestamp%3A1786708508", "id": 13},
-    {"domain": ".facebook.com", "expirationDate": 1818244507.258862, "hostOnly": False, "httpOnly": True, "name": "xs", "path": "/", "sameSite": "no_restriction", "secure": True, "session": False, "storeId": "0", "value": "30%3An9p7CuIv_HLSDw%3A2%3A1786708502%3A-1%3A-1", "id": 14}
-]
+# === HÀM KIỂM TRA VÀ TỰ ĐỘNG CÀI ĐẶT PLAYWRIGHT BROWSER ===
+def ensure_playwright_browser():
+    """Kiểm tra xem chromium đã được cài chưa, nếu chưa thì tự động cài"""
+    try:
+        # Thử khởi tạo playwright và launch chromium để kiểm tra
+        import playwright
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            browser.close()
+        logger.info("✅ Playwright chromium đã có sẵn.")
+        return True
+    except Exception as e:
+        logger.warning(f"⚠️ Playwright chưa cài hoặc lỗi: {e}")
+        logger.info("🔄 Đang cài đặt Playwright chromium...")
+        try:
+            # Chạy lệnh cài đặt
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True, capture_output=True)
+            logger.info("✅ Đã cài đặt Playwright chromium thành công.")
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ Cài đặt thất bại: {e.stderr.decode()}")
+            return False
 
-# === DANH SÁCH BÁO CÁO (GIỐNG SCRIPT TAMPERMONKEY) ===
+# === GỌI HÀM KIỂM TRA KHI BOT KHỞI ĐỘNG ===
+if not ensure_playwright_browser():
+    logger.critical("❌ Không thể cài đặt Playwright. Vui lòng chạy thủ công: playwright install chromium")
+    # Vẫn tiếp tục nhưng sẽ báo lỗi khi attack
+
+# === DANH SÁCH BÁO CÁO ===
 REPORT_ITEMS = [
-    # 1. Vấn đề liên quan đến người dưới 18 tuổi
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Đe dọa chia sẻ hình ảnh khỏa thân của tôi"},
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Có vẻ giống hành vi bóc lột tình dục"},
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Chia sẻ ảnh khỏa thân của ai đó"},
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Bắt nạt hoặc quấy rối"},
     {"main": "Vấn đề liên quan đến người dưới 18 tuổi", "sub": "Ngược đãi thể chất"},
-    # 2. Bắt nạt, quấy rối hoặc lăng mạ/lạm dụng/ngược đãi
     {"main": "Bắt nạt, quấy rối hoặc lăng mạ/lạm dụng/ngược đãi", "sub": "Đe dọa chia sẻ hình ảnh khỏa thân của tôi"},
     {"main": "Bắt nạt, quấy rối hoặc lăng mạ/lạm dụng/ngược đãi", "sub": "Có vẻ giống hành vi bóc lột tình dục"},
     {"main": "Bắt nạt, quấy rối hoặc lăng mạ/lạm dụng/ngược đãi", "sub": "Có vẻ giống hành vi buôn người"},
     {"main": "Bắt nạt, quấy rối hoặc lăng mạ/lạm dụng/ngược đãi", "sub": "Bắt nạt hoặc quấy rối"},
-    # ... (thêm các mục còn lại từ v10.10, tôi viết ngắn gọn để tránh dài)
+    {"main": "Tự tử hoặc tự hại bản thân", "sub": "Tự tử hoặc tự gây thương tích"},
+    {"main": "Tự tử hoặc tự hại bản thân", "sub": "Ăn uống thất thường"},
+    {"main": "Nội dung mang tính bạo lực, thù ghét hoặc gây phiền toái", "sub": "Mối đe dọa về an toàn có thể xảy ra"},
+    {"main": "Nội dung mang tính bạo lực, thù ghét hoặc gây phiền toái", "sub": "Có vẻ giống hành vi khủng bố"},
+    {"main": "Nội dung mang tính bạo lực, thù ghét hoặc gây phiền toái", "sub": "Kêu gọi hành vi bạo lực"},
+    {"main": "Nội dung mang tính bạo lực, thù ghét hoặc gây phiền toái", "sub": "Có vẻ giống tội phạm có tổ chức"},
+    {"main": "Nội dung mang tính bạo lực, thù ghét hoặc gây phiền toái", "sub": "Cổ xúy hành vi thù ghét"},
+    {"main": "Nội dung mang tính bạo lực, thù ghét hoặc gây phiền toái", "sub": "Thể hiện hành vi bạo lực, tử vong hoặc thương tích nghiêm trọng"},
+    {"main": "Nội dung mang tính bạo lực, thù ghét hoặc gây phiền toái", "sub": "Ngược đãi động vật"},
+    {"main": "Bán hoặc quảng bá mặt hàng bị hạn chế", "sub": "Chất cấm, chất gây nghiện"},
+    {"main": "Bán hoặc quảng bá mặt hàng bị hạn chế", "sub": "Vũ khí"},
+    {"main": "Bán hoặc quảng bá mặt hàng bị hạn chế", "sub": "Đồ uống có cồn"},
+    {"main": "Bán hoặc quảng bá mặt hàng bị hạn chế", "sub": "Thuốc lá"},
+    {"main": "Bán hoặc quảng bá mặt hàng bị hạn chế", "sub": "Đánh bạc"},
+    {"main": "Bán hoặc quảng bá mặt hàng bị hạn chế", "sub": "Động vật"},
+    {"main": "Nội dung người lớn", "sub": "Đe dọa chia sẻ hình ảnh khỏa thân của tôi"},
+    {"main": "Nội dung người lớn", "sub": "Có vẻ giống hành vi mại dâm"},
+    {"main": "Nội dung người lớn", "sub": "Hình ảnh khỏa thân của tôi đã bị chia sẻ"},
+    {"main": "Nội dung người lớn", "sub": "Có vẻ giống hành vi bóc lột tình dục"},
+    {"main": "Nội dung người lớn", "sub": "Ảnh khỏa thân hoặc hoạt động tình dục"},
+    {"main": "Thông tin sai sự thật, lừa đảo hoặc gian lận", "sub": "Gian lận hoặc lừa đảo"},
+    {"main": "Thông tin sai sự thật, lừa đảo hoặc gian lận", "sub": "Chia sẻ thông tin sai sự thật"},
+    {"main": "Thông tin sai sự thật, lừa đảo hoặc gian lận", "sub": "Spam"},
+    {"main": "Trang cá nhân giả", "sub": "Tôi"},
+    {"main": "Trang cá nhân giả", "sub": "Một người bạn"},
+    {"main": "Trang cá nhân giả", "sub": "Một người nổi tiếng hoặc người của công chúng"},
+    {"main": "Trang cá nhân giả", "sub": "Một doanh nghiệp"},
+    {"main": "Trang cá nhân giả", "sub": "Tài khoản này không phải là của người thật"},
+    {"main": "Vấn đề khác", "sub": None}
 ]
-# Để đầy đủ, bạn có thể copy toàn bộ REPORT_ITEMS từ file script đã có.
 
 # === BIẾN TOÀN CỤC ===
 TARGET_URL = DEFAULT_TARGET
@@ -66,7 +105,7 @@ total_items = len(REPORT_ITEMS)
 DELAY_STEP = 0.8
 DELAY_SUBMIT = 0.6
 
-# === HÀM TRỢ GIÚP ===
+# === HÀM TÌM NÚT ===
 async def find_more_button(page):
     selectors = [
         'div[aria-label="Hành động"]',
@@ -94,31 +133,22 @@ async def wait_for_text(page, text, timeout=5):
         return None
 
 async def perform_report(page, main_reason, sub_reason):
-    """Thực hiện báo cáo một lý do"""
     try:
-        # 1. Mở menu "..."
         more = await find_more_button(page)
         if not more:
-            # Fallback click góc
-            await page.mouse.click(1280-80, 120)
-            logger.warning("Fallback click góc")
+            await page.evaluate('document.elementFromPoint(window.innerWidth-80, 120)?.click()')
         else:
             await more.click()
         await asyncio.sleep(DELAY_STEP)
 
-        # 2. Chọn "Báo cáo"
-        report_btn = await wait_for_text(page, "Báo cáo", 4)
-        if not report_btn:
-            report_btn = await wait_for_text(page, "Tìm hỗ trợ", 4)
+        report_btn = await wait_for_text(page, "Báo cáo", 4) or await wait_for_text(page, "Tìm hỗ trợ", 4)
         if not report_btn:
             return False
         await report_btn.click()
         await asyncio.sleep(DELAY_STEP)
 
-        # 3. Chọn lý do chính
         main_el = await wait_for_text(page, main_reason, 5)
         if not main_el:
-            # Thử biến thể đơn giản hóa
             simple = main_reason.replace("lăng mạ/lạm dụng/ngược đãi", "lạm dụng")
             main_el = await wait_for_text(page, simple, 3)
         if not main_el:
@@ -126,17 +156,13 @@ async def perform_report(page, main_reason, sub_reason):
         await main_el.click()
         await asyncio.sleep(DELAY_STEP)
 
-        # 4. Chọn sub (nếu có)
         if sub_reason:
             sub_el = await wait_for_text(page, sub_reason, 3)
             if sub_el:
                 await sub_el.click()
                 await asyncio.sleep(DELAY_STEP)
 
-        # 5. Nút gửi (2 lần)
-        submit_btn = await wait_for_text(page, "Báo cáo ngay", 4)
-        if not submit_btn:
-            submit_btn = await wait_for_text(page, "Gửi", 3)
+        submit_btn = await wait_for_text(page, "Báo cáo ngay", 4) or await wait_for_text(page, "Gửi", 3)
         if not submit_btn:
             return False
         await submit_btn.click()
@@ -148,26 +174,21 @@ async def perform_report(page, main_reason, sub_reason):
         logger.error(f"Lỗi báo cáo: {e}")
         return False
 
-# === CÁC LỆNH TELEGRAM ===
+# === LỆNH TELEGRAM ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 *Bot Auto Report FB - Không dùng tọa độ*\n\n"
-        "Tự động báo cáo tất cả lý do như script Tampermonkey\n"
-        "▶️ /attack – Bắt đầu báo cáo\n"
+        "🤖 *Auto Report FB (DOM, không tọa độ)*\n"
+        "▶️ /attack – Bắt đầu\n"
         "⏹ /stop – Dừng\n"
         "📊 /status – Trạng thái\n"
-        "🔗 /settarget <url> – Đổi mục tiêu\n"
-        "⚡ /setdelay <giây> – Delay giữa các bước",
+        "🔗 /settarget <url> – Đổi target\n"
+        "⚡ /setdelay <giây> – Điều chỉnh tốc độ",
         parse_mode="Markdown"
     )
 
 async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_running, report_count, current_index, TARGET_URL
-    txt = f"📊 *Trạng thái*\n"
-    txt += f"🔹 Chạy: {'🟢' if is_running else '🔴'}\n"
-    txt += f"🎯 {TARGET_URL}\n"
-    txt += f"📌 Đã báo: {report_count}/{total_items}\n"
-    txt += f"⏳ Đang tại: {REPORT_ITEMS[current_index]['main'] if current_index < total_items else 'Hoàn thành'}"
+    txt = f"📊 *Trạng thái*\n🔹 Chạy: {'🟢' if is_running else '🔴'}\n🎯 {TARGET_URL}\n📌 Đã báo: {report_count}/{total_items}\n⏳ Hiện tại: {REPORT_ITEMS[current_index]['main'] if current_index < total_items else 'Hoàn thành'}"
     await update.message.reply_text(txt, parse_mode="Markdown")
 
 async def set_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -190,11 +211,10 @@ async def set_delay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         d = float(context.args[0])
         if d < 0.1:
-            await update.message.reply_text("⚠️ Delay quá nhỏ, dùng 0.1 tối thiểu")
             d = 0.1
         DELAY_STEP = d
         DELAY_SUBMIT = d * 0.8
-        await update.message.reply_text(f"✅ Delay = {d:.2f}s, submit = {DELAY_SUMIT:.2f}s")
+        await update.message.reply_text(f"✅ Delay = {d:.2f}s, submit = {DELAY_SUBMIT:.2f}s")
     except:
         await update.message.reply_text("❌ Sai số")
 
@@ -203,14 +223,18 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_running:
         await update.message.reply_text("⚠️ Đang chạy rồi!")
         return
-    if not REPORT_ITEMS:
-        await update.message.reply_text("❌ Không có danh sách báo cáo")
+
+    # Kiểm tra lại playwright trước khi chạy
+    if not ensure_playwright_browser():
+        await update.message.reply_text("❌ Playwright chưa được cài. Bot sẽ tự động cài, vui lòng thử lại sau 1 phút.")
+        # Thử cài lại một lần nữa trong background
+        asyncio.create_task(run_install())
         return
 
     is_running = True
     current_index = 0
     report_count = 0
-    await update.message.reply_text(f"🔥 Bắt đầu báo cáo tự động vào {TARGET_URL}")
+    await update.message.reply_text(f"🔥 Bắt đầu báo cáo vào {TARGET_URL}")
 
     async with async_playwright() as p:
         launch_opts = {
@@ -236,7 +260,6 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             page = await ctx.new_page()
             await stealth_async(page)
 
-            # Đăng nhập
             cookies = [{"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c.get("path", "/"), "secure": c.get("secure", True)} for c in FB_COOKIES]
             await ctx.add_cookies(cookies)
             await page.goto("https://facebook.com", timeout=60000)
@@ -249,13 +272,10 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await page.wait_for_selector('div[role="main"]', timeout=20000)
             await update.message.reply_text("✅ Đăng nhập thành công.")
 
-            # Vòng lặp báo cáo
             while is_running and current_index < total_items:
                 item = REPORT_ITEMS[current_index]
-                logger.info(f"Báo cáo {current_index+1}/{total_items}: {item['main']} -> {item.get('sub', '')}")
-                await update.message.reply_text(f"📌 Đang báo: {item['main']} → {item.get('sub', 'không có sub')}")
+                await update.message.reply_text(f"📌 Đang báo: {item['main']} → {item.get('sub', 'không')}")
                 try:
-                    # Điều hướng đến target (có thể reload)
                     await page.goto(TARGET_URL, timeout=30000)
                     await page.wait_for_load_state("networkidle", timeout=15000)
                     success = await perform_report(page, item["main"], item.get("sub"))
@@ -263,7 +283,7 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         report_count += 1
                         await update.message.reply_text(f"✅ Thành công ({report_count}/{total_items})")
                     else:
-                        await update.message.reply_text(f"❌ Thất bại, thử lại...")
+                        await update.message.reply_text("❌ Thất bại, thử lại...")
                         continue
                 except Exception as e:
                     await update.message.reply_text(f"⚠️ Lỗi: {e}")
@@ -271,7 +291,7 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     continue
                 current_index += 1
                 if is_running and current_index < total_items:
-                    await update.message.reply_text("🔄 Reload trang...")
+                    await update.message.reply_text("🔄 Reload...")
                     await page.reload()
                     await asyncio.sleep(1)
 
@@ -282,6 +302,15 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if browser:
                 await browser.close()
             is_running = False
+
+async def run_install():
+    # Hàm cài đặt nền
+    logger.info("Đang cài Playwright chromium trong nền...")
+    try:
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True, capture_output=True)
+        logger.info("✅ Cài đặt thành công.")
+    except Exception as e:
+        logger.error(f"❌ Cài đặt thất bại: {e}")
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_running, browser
